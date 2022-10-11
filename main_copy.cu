@@ -60,28 +60,28 @@ void load_kernel(int kernel_dim, float sigma, float* kernel)
 }
 
  __global__ 
- void convolution_gpu(float *img, float *kernel, float *imgf, int M, int N, int kernel_size)
+ void convolution_gpu(float *img, float *kernel, float *imgf, int M, int N, int kernel_dim)
 {
   
   //thread id for each block
   int tid = threadIdx.x;    
                    
-  int iy = blockIdx.x + (kernel_size - 1)/2;  
-  int ix = threadIdx.x + (kernel_size - 1)/2; 
+  int iy = blockIdx.x + (kernel_dim - 1)/2;  
+  int ix = threadIdx.x + (kernel_dim - 1)/2; 
   
   //idx of pixel
   int idx = iy*M +ix;                        
  
  //kernel total size
-  int kernel_total_size = kernel_size*kernel_size; 
+  int kernel_total_size = kernel_dim*kernel_dim; 
   
   //center of kernel         
-  int center = (kernel_size -1)/2;		
+  int center = (kernel_dim -1)/2;		
   
   int ii, jj;
   float sum = 0.0;
  
-  //_sKernel will shared in among each block 
+  //_sKernel will shared in each block 
   extern __shared__ float _sKernel[];         
 
   if (tid<kernel_total_size)
@@ -91,11 +91,11 @@ void load_kernel(int kernel_dim, float sigma, float* kernel)
   						
   
   if (idx<M*N){
-    for (int ki = 0; ki<kernel_size; ki++)
-      for (int kj = 0; kj<kernel_size; kj++){
+    for (int ki = 0; ki<kernel_dim; ki++)
+      for (int kj = 0; kj<kernel_dim; kj++){
 	      ii = kj + ix - center;
 	      jj = ki + iy - center;
-	      sum+=img[jj*M+ii]*_sKernel[ki*kernel_size + kj];
+	      sum+=img[jj*M+ii]*_sKernel[ki*kernel_dim + kj];
       }
   
     imgf[idx] = sum;
@@ -110,44 +110,44 @@ cudaEventCreate(&start);
 cudaEventCreate(&stop);
 float milliseconds = 0;
   int M, N;
-  int kernel_size;
+  int kernel_dim;
   float sigma;
   char finput[256], foutput[256];
   int Nblocks, Nthreads;
   
   sprintf(finput,"lux_bw.dat");
-  sprintf(foutput,"lux_output.dat") ;
+  sprintf(foutput,"lux_out.dat");
 
-  M = 600;
-  N = 570;
+  M = 860;
+  N = 853;
 
-  kernel_size = 5;
+  kernel_dim = 5;
   sigma = 0.8;
 
   float *img, *imgf, *kernel;
   
   img = (float*)malloc(M*N*sizeof(float));
   imgf = (float*)malloc(M*N*sizeof(float));
-  kernel = (float*)malloc(kernel_size*kernel_size*sizeof(float));  
+  kernel = (float*)malloc(kernel_dim*kernel_dim*sizeof(float));  
   
   float *d_img, *d_imgf, *d_kernel;
   
   cudaMalloc(&d_img,M*N*sizeof(float));
   cudaMalloc(&d_imgf,M*N*sizeof(float));
-  cudaMalloc(&d_kernel,kernel_size*kernel_size*sizeof(float));
+  cudaMalloc(&d_kernel,kernel_dim*kernel_dim*sizeof(float));
   
   load_image(finput, M, N, img);
-  //init_matrix(kernel, kernel_size);
-  load_kernel(kernel_size, sigma, kernel);
+  //init_matrix(kernel, kernel_dim);
+  load_kernel(kernel_dim, sigma, kernel);
 
   cudaMemcpy(d_img, img, M*N*sizeof(float),cudaMemcpyHostToDevice);
-  cudaMemcpy(d_kernel,kernel, kernel_size*kernel_size*sizeof(float),cudaMemcpyHostToDevice);
+  cudaMemcpy(d_kernel, kernel, kernel_dim*kernel_dim*sizeof(float),cudaMemcpyHostToDevice);
 
-  Nblocks = N - (kernel_size-1);
-  Nthreads = M - (kernel_size-1);
+  Nblocks = N - (kernel_dim-1);
+  Nthreads = M - (kernel_dim-1);
   
   cudaEventRecord(start);
-  convolution_gpu<<<Nblocks, Nthreads, kernel_size*kernel_size*sizeof(float)>>>(d_img, d_kernel, d_imgf, M, N, kernel_size);
+  convolution_gpu<<<Nblocks, Nthreads, kernel_dim*kernel_dim*sizeof(float)>>>(d_img, d_kernel, d_imgf, M, N, kernel_dim);
   cudaDeviceSynchronize();
   cudaEventRecord(stop);
   cudaEventElapsedTime(&milliseconds, start, stop);
