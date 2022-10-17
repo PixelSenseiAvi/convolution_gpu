@@ -64,6 +64,7 @@ __global__ void normalize_vec(int* arr, int* result, int MAX)
 
 int main()
 {
+  printf("Step 00 ");
     //HOST variables
     int* input_arr;
     int* result_arr;
@@ -73,25 +74,32 @@ int main()
     std::mt19937 rng(dev());
     std::uniform_int_distribution<std::mt19937::result_type> dist50(0,50); 
 
-    *input_arr = 0;
+    input_arr = (int*)(malloc(TOTAL_INPUT_SIZE*sizeof(int)));
+
     //Loading variables on CPU
     for(size_t i = 0; i < TOTAL_INPUT_SIZE; i++)
     {
         input_arr[i] = dist50(rng);
     }
 
-    int RESULT_SIZE = TOTAL_INPUT_SIZE - SAMPLE_SIZE +1;
-    result_arr = (int*)malloc(sizeof(int)*(RESULT_SIZE);
+    printf("Step 01");
 
+    int RESULT_SIZE = TOTAL_INPUT_SIZE - SAMPLE_SIZE +1;
+    result_arr = (int*)malloc(sizeof(int)*(RESULT_SIZE));
+
+    printf("Step 1");
     //DEVICE variables
-    int* device_input, device_result;
+    int* device_input;
+    int* device_result;
 
     gpuErrchk(cudaMalloc((void **)&device_input, TOTAL_INPUT_SIZE*sizeof(int)));
     gpuErrchk(cudaMalloc((void **)&device_result, RESULT_SIZE*sizeof(int)));
 
+    printf("Step 2");
     cudaMemcpy(device_input, input_arr, TOTAL_INPUT_SIZE*sizeof(int),cudaMemcpyHostToDevice);
     cudaMemcpy(device_result, result_arr, RESULT_SIZE*sizeof(int),cudaMemcpyHostToDevice);
 
+    printf("Step 3");
     int shared_memory_allocation_size = sizeof(int)*(THREADS_PER_BLOCK+SAMPLE_SIZE);
     CalculateSMA_Shared<<<RESULT_SIZE/ THREADS_PER_BLOCK + 1, THREADS_PER_BLOCK, shared_memory_allocation_size>>>(input_arr, TOTAL_INPUT_SIZE, result_arr, RESULT_SIZE, SAMPLE_SIZE);
     cudaDeviceSynchronize();
@@ -101,6 +109,7 @@ int main()
 
     printf("Results copied back to HOST");
 
+/*
     int* normal_vec;
     normal_vec = (int*)malloc(sizeof(int)*(RESULT_SIZE));
 
@@ -115,9 +124,11 @@ int main()
 
     free(input_arr);
     free(result_arr);
-    free(normal_vec);
+   // free(normal_vec);
 
     cudaFree(device_input);
     cudaFree(device_result);
-    cudaFree(device_normal);
+   // cudaFree(device_normal);
+
+   */
 }
